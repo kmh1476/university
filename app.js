@@ -1091,7 +1091,6 @@
             <button type="button" id="cardPrintOnlyBtn">상담카드만 인쇄</button>
             <button type="button" id="cardImportBtn">관심 비교 목록 불러오기</button>
             <button type="button" id="cardResetBtn">전체 지우기</button>
-            <span class="card-hint">상담 전에는 학생작성본, 상담 기록이 있으면 교사상담본이라는 이름으로 자동 저장됩니다.</span>
           </div>
           <div class="card-workspace"><div class="card-sheet"><div class="card-inner">${cardHeaderHtml()}${cardTableHtml()}${cardTeacherHtml()}</div></div><aside class="history-panel no-print" id="historyPanel" aria-live="polite"></aside></div>
           <section id="historyPrintAppendix" class="history-print-appendix" aria-hidden="true"></section>
