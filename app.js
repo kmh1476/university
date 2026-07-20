@@ -1329,34 +1329,50 @@
       }).join('') : '<p style="color:#64748b;">아직 제출된 기록이 없습니다.</p>';
       show('ccBanPick');
     }
-    function renderList(){
-      const search = (q('#ccSearch').value||'').trim();
-      let rows = ccAll.filter(r=>{ const p=parseHakbun(r.hakbun); return (ccBan==='기타') ? !p.ok : (p.ok && p.ban===ccBan); });
-      if(search){
-        rows = rows.filter(r=> String(r.name||'').includes(search) || String(r.hakbun||'').includes(search) );
-      }
-      rows.sort((a,b)=>{ const pa=parseHakbun(a.hakbun), pb=parseHakbun(b.hakbun); return (pa.beonhoNum||999)-(pb.beonhoNum||999); });
-      const banLabel = ccBan==='기타' ? '기타(형식오류)' : (parseInt(ccBan,10)+'반');
-      q('#ccCrumb').textContent = '3학년 ' + banLabel + ' 상담카드 목록';
-      q('#ccCount').textContent = '총 ' + rows.length + '명';
-      const tb = q('#ccTbody');
-      tb.innerHTML = rows.length ? rows.map(r=>{
-        const p=parseHakbun(r.hakbun);
-        const t = (r.updatedAt && r.updatedAt.toDate) ? r.updatedAt.toDate().toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-';
-        const isT = r.status==='교사상담본';
-        return `<tr>
-          <td>${p.ok? p.beonhoNum+'번':'-'}</td>
-          <td>${r.hakbun||''}</td>
-          <td class="l">${r.name||''}</td>
-          <td><span class="cc-badge ${isT?'t':'s'}">${r.status||''}</span></td>
-          <td>${t}</td>
-          <td><button type="button" data-id="${r.id}">상세</button></td>
-<td>
-   <button type="button" class="admin-del-btn"
-     onclick="adminDeleteRecord('${r.id}', '${(r.hakbun||'')} ${(r.name||'')}')">
-     삭제
-   </button>
- </td>
+function renderList(){
+  const search = (q('#ccSearch').value||'').trim();
+  let rows = ccAll.filter(r => { 
+    const p = parseHakbun(r.hakbun); 
+    return (ccBan === '기타') ? !p.ok : (p.ok && p.ban === ccBan); 
+  });
+
+  if (search) {
+    rows = rows.filter(r => String(r.name || '').includes(search) || String(r.hakbun || '').includes(search));
+  }
+
+  rows.sort((a, b) => { 
+    const pa = parseHakbun(a.hakbun), pb = parseHakbun(b.hakbun); 
+    return (pa.beonhoNum || 999) - (pb.beonhoNum || 999); 
+  });
+
+  const banLabel = ccBan === '기타' ? '기타(형식오류)' : (parseInt(ccBan, 10) + '반');
+  q('#ccCrumb').textContent = '3학년 ' + banLabel + ' 상담카드 목록';
+  q('#ccCount').textContent = '총 ' + rows.length + '명';
+
+  const tb = q('#ccTbody');
+  tb.innerHTML = rows.length ? rows.map(r => {
+    const p = parseHakbun(r.hakbun);
+    const t = (r.updatedAt && r.updatedAt.toDate) 
+      ? r.updatedAt.toDate().toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) 
+      : '-';
+    const isT = r.status === '교사상담본';
+    const displayName = `${r.hakbun || ''} ${r.name || ''}`.trim();
+
+    return `<tr>
+      <td>${p.ok ? p.beonhoNum + '번' : '-'}</td>
+      <td>${r.hakbun || ''}</td>
+      <td class="l">${r.name || ''}</td>
+      <td><span class="cc-badge ${isT ? 't' : 's'}">${r.status || ''}</span></td>
+      <td>${t}</td>
+      <td><button type="button" data-id="${r.id}">상세</button></td>
+      <td>
+        <button type="button" class="admin-del-btn" onclick="adminDeleteRecord('${r.id}', '${displayName}')">
+          삭제
+        </button>
+      </td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="7">데이터가 없습니다.</td></tr>`;
+}
 
        
         </tr>`;
