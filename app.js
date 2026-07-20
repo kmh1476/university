@@ -979,7 +979,8 @@ async function cardSubmitToCloud() {
         <tr><th>전문대와 4년제</th><td colspan="2">전문대 (${ox('jeonmun')})&nbsp;&nbsp; 4년제 (${ox('univ4')})</td><th>수시와 정시</th><td colspan="2">수시 (${ox('susi')})&nbsp;&nbsp; 정시 (${ox('jeongsi')})</td></tr>
         <tr><th>수시 응시 전형</th><td colspan="5">교과 (${inp('gyogwa', '40px')})&nbsp; 종합 (${inp('jonghap', '40px')})&nbsp; 적성 (${inp('jukseong', '40px')})&nbsp; 논술 (${inp('nonsul', '40px')})&nbsp; 실기 (분야: ${inp('silgi', '90px')})&nbsp; 기타 (세부전형: ${inp('gita', '110px')})</td></tr>
       </table>
-      <div class="card-sec-label">2. 자신이 지원할 대학과 학과에 대해 조사하고 빈칸을 채워 봅시다.</div>`;
+      <div class="card-sec-label">2. 자신이 지원할 대학과 학과에 대해 조사하고 빈칸을 채워 봅시다.<br>
+<span style="color: red;">[과학기술원(카이스트, 유니스트, 지스트, 디지스트), 사관학교, 경찰대 제외], 적어도 +2개 대학은 더 적으세요.(ex. 4장 쓸거면 6개 대학)</span></div>`;
     }
     function cardRowHtml(idx) {
       const stageNames = ['일괄합산', '1단계', '2단계'];
@@ -1165,7 +1166,7 @@ async function cardSubmitToCloud() {
             <button type="button" id="cardPrintOnlyBtn">상담카드만 인쇄</button>
             <button type="button" id="cardImportBtn">관심 비교 목록 불러오기</button>
             <button type="button" id="cardResetBtn">전체 지우기</button>
-            <span class="card-hint">상담 전에는 학생작성본, 상담 기록이 있으면 교사상담본이라는 이름으로 자동 저장됩니다.</span>
+        
           </div>
           <div class="card-workspace"><div class="card-sheet"><div class="card-inner">${cardHeaderHtml()}${cardTableHtml()}${cardTeacherHtml()}</div></div><aside class="history-panel no-print" id="historyPanel" aria-live="polite"></aside></div>
           <section id="historyPrintAppendix" class="history-print-appendix" aria-hidden="true"></section>
