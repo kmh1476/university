@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>2027 수시 지원 상담카드 V9.2 · 경기대학교 공식요강 데이터 보완본</title>
+<title>2027 수시 지원 상담카드 V9.2 </title>
 <style>
 :root { --bg:#f6f7f9; --panel:#ffffff; --ink:#1f2933; --muted:#667085; --line:#d7dde5; --line-strong:#aab4c2; --navy:#17456b; --soft-blue:#e8f1f8; }
 * { box-sizing:border-box; }
@@ -202,25 +202,15 @@ input, select { font-family:inherit; }
 
 @media print { header { display:none !important; } body { background:#fff; } main { max-width:none; padding:0; } }
 </style>
-</head>
-<body>
-<!-- 경기대학교 데이터: 2027학년도 공식 수시모집요강(공지용) 모집단위·전형·인원·방법·일정 및 별첨 2026 입결 반영 -->
-<header class="no-print">
-  <h1>2027학년도 대입전형 수시 지원 상담카드 V9.2 (자동채움)</h1>
-  <p>대학명 → 전형명 → 학과명을 입력하면 나머지 칸이 자동으로 채워집니다. 자료에 없는 대학(과학기술원 등)은 직접 입력하면 됩니다. 작성 내용은 이 컴퓨터 브라우저에 자동 저장됩니다. <span style="opacity:.9;">· 수시상담카드 제작: 운정고 이재규 선생님 · 대학어디가 입결 정리: 남악고 김현석 선생님 · 두 자료 통합·수정: 동덕여고 기경민 선생님</span></p>
-</header>
-<main>
-  <section id="cardPanel"></section>
-</main>
 
-<!-- Firebase SDK -->
+<!-- ▼▼▼ [추가] Firebase SDK + 설정 ▼▼▼ -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
-  // ★ 콘솔에서 복사한 값으로 교체하세요
-  const firebaseConfig = {
-  apiKey: "AIzaSyDXjUuhQ2urXuDAZHSeFjF1xED6qMzoQ60",
+  // ★★★ Firebase 콘솔에서 복사한 값으로 반드시 교체하세요 ★★★
+  var firebaseConfig = {
+   apiKey: "AIzaSyDXjUuhQ2urXuDAZHSeFjF1xED6qMzoQ60",
   authDomain: "university-a66f6.firebaseapp.com",
   projectId: "university-a66f6",
   storageBucket: "university-a66f6.firebasestorage.app",
@@ -228,10 +218,25 @@ input, select { font-family:inherit; }
   appId: "1:478591588811:web:f0356ec048ad45cd057e4e",
   measurementId: "G-60DHBRVL0M"
   };
-  firebase.initializeApp(firebaseConfig);
-  window.fbDB   = firebase.firestore();
-  window.fbAuth = firebase.auth();
+  try {
+    firebase.initializeApp(firebaseConfig);
+    window.fbDB = firebase.firestore();
+    window.fbAuth = firebase.auth();
+  } catch (e) {
+    console.error('[Firebase] 초기화 실패 - firebaseConfig 값을 확인하세요.', e);
+  }
 </script>
+<!-- ▲▲▲ [추가] Firebase SDK + 설정 ▲▲▲ -->
+</head>
+<body>
+<!-- 2027학년도 공식 수시모집요강(공지용) 모집단위·전형·인원·방법·일정 및 별첨 2026 입결 반영 -->
+<header class="no-print">
+  <h1>2027학년도 대입전형 수시 지원 상담카드 V9.2 (자동채움)</h1>
+  <p>대학명 → 전형명 → 학과명을 입력하면 나머지 칸이 자동으로 채워집니다. 자료에 없는 대학(과학기술원 등)은 직접 입력하면 됩니다. 작성 내용은 이 컴퓨터 브라우저에 자동 저장됩니다. <span style="opacity:.9;">· 수시상담카드 제작: 운정고 이재규 선생님 · 대학어디가 입결 정리: 남악고 김현석 선생님 · 두 자료 통합·수정: 동덕여고 기경민 선생님</span></p>
+</header>
+<main>
+  <section id="cardPanel"></section>
+</main>
 <script>
 (function () {
   'use strict';

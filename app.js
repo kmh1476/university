@@ -123,43 +123,6 @@
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       cardShowFileStatus(`${name} ${kind} 편집파일을 저장했습니다. 이 파일을 전달하면 다른 컴퓨터에서 이어서 수정할 수 있습니다.`);
     }
-
-    // 학번+이름으로 문서 ID 생성 (동일 학생이 다시 제출하면 덮어쓰기)
-function cardCloudDocId(header) {
-  const hakbun = (header.hakbun || '학번미입력').trim();
-  const name   = (header.name   || '이름미입력').trim();
-  // Firestore ID에 쓸 수 없는 문자 정리
-  return `${hakbun}_${name}`.replace(/[\/\.\#\$$$]/g, '_');
-}
-
-async function cardSubmitToCloud() {
-  cardSaveNow(); // 현재 입력값을 cardState에 반영 (기존 함수)
-  const header = cardState.header || {};
-
-  // 최소 입력 검증
-  if (!header.hakbun || !header.name) {
-    alert('학번과 이름을 먼저 입력해 주세요.');
-    return;
-  }
-
-  const docId = cardCloudDocId(header);
-  const payload = {
-    hakbun: header.hakbun.trim(),
-    name:   header.name.trim(),
-    status: cardHasTeacherContent(cardState) ? '교사상담본' : '학생작성본',
-    state:  cardState,                              // 카드 전체 데이터
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  };
-
-  try {
-    await fbDB.collection('counsel_cards').doc(docId).set(payload, { merge: true });
-    alert(`${header.name} 학생의 상담카드를 제출했습니다.`);
-  } catch (e) {
-    console.error(e);
-    alert('제출에 실패했습니다. 네트워크 상태를 확인해 주세요.');
-  }
-}
-
     function cardOpenImportPicker() {
       const input = el('cardFileInput');
       if (input) { input.value = ''; input.click(); }
@@ -979,8 +942,7 @@ async function cardSubmitToCloud() {
         <tr><th>전문대와 4년제</th><td colspan="2">전문대 (${ox('jeonmun')})&nbsp;&nbsp; 4년제 (${ox('univ4')})</td><th>수시와 정시</th><td colspan="2">수시 (${ox('susi')})&nbsp;&nbsp; 정시 (${ox('jeongsi')})</td></tr>
         <tr><th>수시 응시 전형</th><td colspan="5">교과 (${inp('gyogwa', '40px')})&nbsp; 종합 (${inp('jonghap', '40px')})&nbsp; 적성 (${inp('jukseong', '40px')})&nbsp; 논술 (${inp('nonsul', '40px')})&nbsp; 실기 (분야: ${inp('silgi', '90px')})&nbsp; 기타 (세부전형: ${inp('gita', '110px')})</td></tr>
       </table>
-      <div class="card-sec-label">2. 자신이 지원할 대학과 학과에 대해 조사하고 빈칸을 채워 봅시다.<br>
-<span style="color: red;">[과학기술원(카이스트, 유니스트, 지스트, 디지스트), 사관학교, 경찰대 제외], 적어도 +2개 대학은 더 적으세요.(ex. 4장 쓸거면 6개 대학)</span></div>`;
+      <div class="card-sec-label">2. 자신이 지원할 대학과 학과에 대해 조사하고 빈칸을 채워 봅시다.</div>`;
     }
     function cardRowHtml(idx) {
       const stageNames = ['일괄합산', '1단계', '2단계'];
@@ -1122,51 +1084,12 @@ async function cardSubmitToCloud() {
           <div class="card-file-status no-print" id="cardFileStatus"></div>
           <div class="card-toolbar no-print">
             <button type="button" class="primary" id="cardPrintBtn">상담카드 + 과년도 입결 PDF 저장</button>
-            <button id="cardSubmitCloudBtn" class="primary" type="button">선생님께 제출</button>
-<!-- 탭 버튼 목록에 추가 -->
-<button class="tab-btn" data-tab="admin">관리자</button>
-
-<!-- 탭 패널 영역에 추가 -->
-<section id="tab-admin" class="tab-panel" style="display:none;">
-  <!-- 로그인 영역 -->
-  <div id="adminLogin">
-    <h3>관리자 로그인</h3>
-    <input id="adminEmail" type="email" placeholder="관리자 이메일">
-    <input id="adminPw" type="password" placeholder="비밀번호">
-    <button id="adminLoginBtn" type="button">로그인</button>
-    <p id="adminLoginMsg" style="color:#c00;"></p>
-  </div>
-
-  <!-- 로그인 후 조회 영역 -->
-  <div id="adminPanel" style="display:none;">
-    <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-      <input id="adminSearch" type="text" placeholder="학번/이름 검색">
-      <button id="adminRefreshBtn" type="button">새로고침</button>
-      <button id="adminLogoutBtn" type="button">로그아웃</button>
-      <span id="adminCount" style="margin-left:auto;"></span>
-    </div>
-    <table id="adminTable" border="1" cellpadding="6" style="width:100%; border-collapse:collapse;">
-      <thead>
-        <tr><th>학번</th><th>이름</th><th>상태</th><th>제출시각</th><th>보기</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-    <!-- 상세 보기 -->
-    <div id="adminDetail" style="margin-top:12px; display:none;">
-      <h3 id="adminDetailTitle"></h3>
-      <button id="adminLoadToCard" type="button">이 학생 데이터를 상담카드 탭으로 불러오기</button>
-      <pre id="adminDetailJson" style="white-space:pre-wrap; background:#f6f6f6; padding:10px; max-height:400px; overflow:auto;"></pre>
-    </div>
-  </div>
-</section>
-
+            <button type="button" id="cardExportFileBtn">편집파일 저장</button>
+            <button type="button" id="cardLoadFileBtn">편집파일 불러오기</button>
             <input type="file" id="cardFileInput" accept=".json,.susicard.json,application/json" hidden>
-
             <button type="button" id="cardPrintOnlyBtn">상담카드만 인쇄</button>
             <button type="button" id="cardImportBtn">관심 비교 목록 불러오기</button>
             <button type="button" id="cardResetBtn">전체 지우기</button>
-        
           </div>
           <div class="card-workspace"><div class="card-sheet"><div class="card-inner">${cardHeaderHtml()}${cardTableHtml()}${cardTeacherHtml()}</div></div><aside class="history-panel no-print" id="historyPanel" aria-live="polite"></aside></div>
           <section id="historyPrintAppendix" class="history-print-appendix" aria-hidden="true"></section>
@@ -1177,9 +1100,6 @@ async function cardSubmitToCloud() {
         el('cardFileInput').addEventListener('change', e => cardImportFile(e.target.files && e.target.files[0]));
         el('cardPrintBtn').addEventListener('click', () => cardPrint(true));
         el('cardPrintOnlyBtn').addEventListener('click', () => cardPrint(false));
-        // 기존 이벤트 바인딩부(el('cardPrintOnlyBtn')... 있는 곳)에 추가
-        el('cardSubmitCloudBtn').addEventListener('click', cardSubmitToCloud);
-
         el('cardImportBtn').addEventListener('click', cardImportFavs);
         el('cardResetBtn').addEventListener('click', () => { if (confirm('상담카드 내용을 모두 지울까요?')) { cardState = cardDefaultState(); cardRefreshAll(); cardSave(); } });
         panel.addEventListener('input', e => {
@@ -1271,113 +1191,6 @@ async function cardSubmitToCloud() {
         cardRefreshAll();
       }
     }
-
-    let adminRecords = []; // 불러온 기록 캐시
-
-// 로그인 상태 감지 → 화면 전환
-fbAuth.onAuthStateChanged(user => {
-  const login = el('adminLogin');
-  const panel = el('adminPanel');
-  if (!login || !panel) return;
-  if (user) {
-    login.style.display = 'none';
-    panel.style.display = '';
-    adminLoadRecords();
-  } else {
-    login.style.display = '';
-    panel.style.display = 'none';
-  }
-});
-
-// 로그인
-async function adminLogin() {
-  const email = el('adminEmail').value.trim();
-  const pw    = el('adminPw').value;
-  el('adminLoginMsg').textContent = '';
-  try {
-    await fbAuth.signInWithEmailAndPassword(email, pw);
-  } catch (e) {
-    el('adminLoginMsg').textContent = '로그인 실패: 이메일/비밀번호를 확인하세요.';
-  }
-}
-
-// 기록 전체 불러오기 (최신순)
-async function adminLoadRecords() {
-  const tbody = el('adminTable').querySelector('tbody');
-  tbody.innerHTML = '<tr><td colspan="5">불러오는 중...</td></tr>';
-  try {
-    const snap = await fbDB.collection('counsel_cards')
-                           .orderBy('updatedAt', 'desc')
-                           .get();
-    adminRecords = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    adminRenderTable(adminRecords);
-  } catch (e) {
-    console.error(e);
-    tbody.innerHTML = '<tr><td colspan="5">불러오기 실패 (권한/네트워크 확인)</td></tr>';
-  }
-}
-
-// 표 그리기
-function adminRenderTable(list) {
-  const tbody = el('adminTable').querySelector('tbody');
-  el('adminCount').textContent = `총 ${list.length}건`;
-  if (!list.length) { tbody.innerHTML = '<tr><td colspan="5">기록 없음</td></tr>'; return; }
-  tbody.innerHTML = list.map((r, i) => {
-    const t = r.updatedAt && r.updatedAt.toDate
-            ? r.updatedAt.toDate().toLocaleString('ko-KR') : '-';
-    return `<tr>
-      <td>${r.hakbun || ''}</td>
-      <td>${r.name || ''}</td>
-      <td>${r.status || ''}</td>
-      <td>${t}</td>
-      <td><button type="button" onclick="adminShowDetail(${i})">상세</button></td>
-    </tr>`;
-  }).join('');
-}
-
-// 검색 (클라이언트 필터)
-function adminSearch() {
-  const q = el('adminSearch').value.trim().toLowerCase();
-  const filtered = adminRecords.filter(r =>
-    (r.hakbun || '').toLowerCase().includes(q) ||
-    (r.name   || '').toLowerCase().includes(q));
-  adminRenderTable(filtered);
-}
-
-// 상세 보기
-let adminCurrentState = null;
-function adminShowDetail(idx) {
-  // 검색으로 필터된 경우를 대비해 화면 표 기준이 아니라 캐시에서 매칭
-  const visible = el('adminSearch').value.trim()
-    ? adminRecords.filter(r => {
-        const q = el('adminSearch').value.trim().toLowerCase();
-        return (r.hakbun||'').toLowerCase().includes(q) || (r.name||'').toLowerCase().includes(q);
-      })
-    : adminRecords;
-  const r = visible[idx];
-  if (!r) return;
-  adminCurrentState = r.state;
-  el('adminDetail').style.display = '';
-  el('adminDetailTitle').textContent = `${r.hakbun} ${r.name} (${r.status})`;
-  el('adminDetailJson').textContent = JSON.stringify(r.state, null, 2);
-}
-
-// 상세 데이터를 상담카드 탭으로 로드 (기존 렌더 함수 재사용)
-function adminLoadToCard() {
-  if (!adminCurrentState) return;
-  cardState = JSON.parse(JSON.stringify(adminCurrentState));
-  cardRefreshAll();  // 기존 렌더 함수
-  cardSave();        // 기존 로컬 저장
-  alert('상담카드 탭에서 확인하세요.');
-}
-
-// 이벤트 바인딩
-el('adminLoginBtn')  .addEventListener('click', adminLogin);
-el('adminLogoutBtn') .addEventListener('click', () => fbAuth.signOut());
-el('adminRefreshBtn').addEventListener('click', adminLoadRecords);
-el('adminSearch')    .addEventListener('input', adminSearch);
-el('adminLoadToCard').addEventListener('click', adminLoadToCard);
-
     function cardRefreshAll() {
       const h = cardState.header;
       el('cardPanel').querySelectorAll('input[data-h]').forEach(i2 => { i2.value = h[i2.dataset.h] || ''; });
@@ -1398,4 +1211,205 @@ el('adminLoadToCard').addEventListener('click', adminLoadToCard);
 
   renderCard();
   const ib = el('cardImportBtn'); if (ib) ib.style.display = 'none';
+
+  /* ==================== [추가] Firebase 클라우드 제출 + 관리자 화면 ==================== */
+  (function initCloudAddon() {
+    if (typeof firebase === 'undefined' || !window.fbDB) {
+      console.warn('[클라우드] Firebase 미설정 - index.html의 firebaseConfig를 확인하세요. 클라우드 기능이 비활성화됩니다.');
+      return;
+    }
+    var db = window.fbDB, auth = window.fbAuth;
+    var COL = 'counsel_cards';
+    var records = [], curRecord = null;
+
+    function safeId(s) { return text(s).trim().replace(/[\/.#$\[\]]/g, '_'); }
+    function docIdFor(h) { return (safeId(h.hakbun) || '학번미입력') + '_' + (safeId(h.name) || '이름미입력'); }
+    function fmtTime(ts) { try { return ts && ts.toDate ? ts.toDate().toLocaleString('ko-KR') : '-'; } catch (e) { return '-'; } }
+
+    /* ---------- 학생: 클라우드 제출 ---------- */
+    async function submitToCloud() {
+      cardSaveNow();
+      var h = cardState.header || {};
+      if (!text(h.hakbun).trim() || !text(h.name).trim()) { alert('학번과 이름을 먼저 입력해 주세요.'); return; }
+      var btn = el('cardCloudSubmitBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '제출 중...'; }
+      try {
+        await db.collection(COL).doc(docIdFor(h)).set({
+          hakbun: text(h.hakbun).trim(),
+          name: text(h.name).trim(),
+          status: cardHasTeacherContent(cardState) ? '교사상담본' : '학생작성본',
+          state: cardState,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        cardShowFileStatus(text(h.name).trim() + ' 학생의 상담카드를 클라우드에 제출했습니다. 선생님이 관리자 화면에서 확인할 수 있습니다.');
+      } catch (e) {
+        console.error(e);
+        alert('제출에 실패했습니다.\n' + (e && e.message ? e.message : e));
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '클라우드 제출'; }
+      }
+    }
+
+    /* ---------- 툴바에 버튼 주입 ---------- */
+    var toolbar = document.querySelector('.card-toolbar');
+    if (toolbar) {
+      var sBtn = document.createElement('button');
+      sBtn.type = 'button'; sBtn.id = 'cardCloudSubmitBtn'; sBtn.className = 'primary';
+      sBtn.textContent = '클라우드 제출';
+      sBtn.addEventListener('click', submitToCloud);
+      var aBtn = document.createElement('button');
+      aBtn.type = 'button'; aBtn.id = 'cardAdminBtn';
+      aBtn.textContent = '관리자';
+      aBtn.addEventListener('click', openAdmin);
+      var anchor = el('cardExportFileBtn');
+      if (anchor) { anchor.after(sBtn); sBtn.after(aBtn); }
+      else { toolbar.appendChild(sBtn); toolbar.appendChild(aBtn); }
+    }
+
+    /* ---------- 관리자 오버레이 DOM ---------- */
+    var ov = document.createElement('div');
+    ov.id = 'adminOverlay';
+    ov.style.cssText = 'display:none;position:fixed;inset:0;z-index:99999;background:rgba(20,30,40,.55);padding:24px;overflow:auto;';
+    ov.innerHTML =
+      '<div style="max-width:1000px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.35);padding:18px 20px;font-family:inherit;color:#1f2933;">' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
+          '<h2 style="margin:0;font-size:19px;color:#17456b;">관리자 · 제출된 상담카드</h2>' +
+          '<button type="button" id="adminCloseBtn" style="margin-left:auto;border:1px solid #aab4c2;background:#fff;border-radius:7px;padding:6px 12px;cursor:pointer;">닫기</button>' +
+        '</div>' +
+        '<div id="adminLogin">' +
+          '<p style="color:#667085;font-size:13px;margin:0 0 10px;">선생님(관리자) 계정으로 로그인하면 학생들이 제출한 상담카드를 모두 볼 수 있습니다.</p>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
+            '<input id="adminEmail" type="email" placeholder="관리자 이메일" style="padding:8px 10px;border:1px solid #d7dde5;border-radius:7px;min-width:220px;">' +
+            '<input id="adminPw" type="password" placeholder="비밀번호" style="padding:8px 10px;border:1px solid #d7dde5;border-radius:7px;min-width:180px;">' +
+            '<button type="button" id="adminLoginBtn" class="primary" style="border:1px solid #17456b;background:#17456b;color:#fff;border-radius:7px;padding:8px 16px;cursor:pointer;font-weight:600;">로그인</button>' +
+          '</div>' +
+          '<p id="adminLoginMsg" style="color:#c0141e;font-size:12.5px;margin:8px 0 0;"></p>' +
+        '</div>' +
+        '<div id="adminPanel" style="display:none;">' +
+          '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;">' +
+            '<input id="adminSearch" type="text" placeholder="학번 / 이름 검색" style="padding:7px 10px;border:1px solid #d7dde5;border-radius:7px;min-width:200px;">' +
+            '<button type="button" id="adminRefreshBtn" style="border:1px solid #aab4c2;background:#fff;border-radius:7px;padding:7px 12px;cursor:pointer;">새로고침</button>' +
+            '<button type="button" id="adminLogoutBtn" style="border:1px solid #aab4c2;background:#fff;border-radius:7px;padding:7px 12px;cursor:pointer;">로그아웃</button>' +
+            '<span id="adminCount" style="margin-left:auto;color:#667085;font-size:13px;"></span>' +
+          '</div>' +
+          '<div style="overflow:auto;border:1px solid #e2e7ed;border-radius:8px;">' +
+            '<table id="adminTable" style="width:100%;border-collapse:collapse;font-size:13px;">' +
+              '<thead><tr style="background:#f1f3f5;">' +
+                '<th style="padding:8px;text-align:left;border-bottom:1px solid #e2e7ed;">학번</th>' +
+                '<th style="padding:8px;text-align:left;border-bottom:1px solid #e2e7ed;">이름</th>' +
+                '<th style="padding:8px;text-align:left;border-bottom:1px solid #e2e7ed;">상태</th>' +
+                '<th style="padding:8px;text-align:left;border-bottom:1px solid #e2e7ed;">제출시각</th>' +
+                '<th style="padding:8px;text-align:center;border-bottom:1px solid #e2e7ed;">보기</th>' +
+              '</tr></thead><tbody></tbody>' +
+            '</table>' +
+          '</div>' +
+          '<div id="adminDetail" style="display:none;margin-top:14px;border-top:1px solid #e2e7ed;padding-top:12px;">' +
+            '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">' +
+              '<h3 id="adminDetailTitle" style="margin:0;font-size:16px;color:#17456b;"></h3>' +
+              '<button type="button" id="adminLoadToCard" class="primary" style="border:1px solid #1f6f78;background:#1f6f78;color:#fff;border-radius:7px;padding:7px 14px;cursor:pointer;font-weight:600;">이 학생 카드를 화면으로 불러오기</button>' +
+            '</div>' +
+            '<pre id="adminDetailJson" style="white-space:pre-wrap;background:#f6f7f9;border:1px solid #e2e7ed;border-radius:8px;padding:10px;max-height:340px;overflow:auto;font-size:12px;"></pre>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+
+    function openAdmin() { ov.style.display = 'block'; }
+    function closeAdmin() { ov.style.display = 'none'; }
+
+    async function loadRecords() {
+      var tbody = ov.querySelector('#adminTable tbody');
+      tbody.innerHTML = '<tr><td colspan="5" style="padding:14px;text-align:center;color:#667085;">불러오는 중...</td></tr>';
+      try {
+        var snap = await db.collection(COL).orderBy('updatedAt', 'desc').get();
+        records = snap.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; });
+        renderTable();
+      } catch (e) {
+        console.error(e);
+        tbody.innerHTML = '<tr><td colspan="5" style="padding:14px;text-align:center;color:#c0141e;">불러오기 실패 (권한 또는 네트워크 확인)</td></tr>';
+      }
+    }
+
+    function visibleList() {
+      var q = ov.querySelector('#adminSearch').value.trim().toLowerCase();
+      if (!q) return records;
+      return records.filter(function (r) {
+        return (text(r.hakbun).toLowerCase().indexOf(q) >= 0) || (text(r.name).toLowerCase().indexOf(q) >= 0);
+      });
+    }
+
+    function renderTable() {
+      var list = visibleList();
+      var tbody = ov.querySelector('#adminTable tbody');
+      ov.querySelector('#adminCount').textContent = '총 ' + list.length + '건';
+      if (!list.length) { tbody.innerHTML = '<tr><td colspan="5" style="padding:14px;text-align:center;color:#667085;">기록 없음</td></tr>'; return; }
+      tbody.innerHTML = list.map(function (r, i) {
+        return '<tr style="border-bottom:1px solid #eef1f4;">' +
+          '<td style="padding:7px 8px;">' + escapeHtml(r.hakbun) + '</td>' +
+          '<td style="padding:7px 8px;">' + escapeHtml(r.name) + '</td>' +
+          '<td style="padding:7px 8px;">' + escapeHtml(r.status || '') + '</td>' +
+          '<td style="padding:7px 8px;">' + fmtTime(r.updatedAt) + '</td>' +
+          '<td style="padding:7px 8px;text-align:center;"><button type="button" data-idx="' + i + '" class="adminViewBtn" style="border:1px solid #aab4c2;background:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;">상세</button></td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    function showDetail(idx) {
+      var r = visibleList()[idx];
+      if (!r) return;
+      curRecord = r;
+      ov.querySelector('#adminDetail').style.display = 'block';
+      ov.querySelector('#adminDetailTitle').textContent = text(r.hakbun) + ' ' + text(r.name) + ' (' + text(r.status) + ')';
+      ov.querySelector('#adminDetailJson').textContent = JSON.stringify(r.state, null, 2);
+    }
+
+    function loadToCard() {
+      if (!curRecord || !curRecord.state) return;
+      if (cardHasContent(cardState) && !confirm('현재 화면의 카드 내용 대신 이 학생 데이터를 불러올까요?')) return;
+      try {
+        cardState = cardNormalizeImportedState(curRecord);
+        cardRefreshAll();
+        cardSaveNow();
+        closeAdmin();
+        cardShowFileStatus(text(curRecord.name) + ' 학생의 제출본을 화면으로 불러왔습니다.');
+      } catch (e) {
+        alert('불러오기 실패: ' + (e && e.message ? e.message : e));
+      }
+    }
+
+    /* ---------- 이벤트 바인딩 ---------- */
+    ov.querySelector('#adminCloseBtn').addEventListener('click', closeAdmin);
+    ov.addEventListener('click', function (e) { if (e.target === ov) closeAdmin(); });
+    ov.querySelector('#adminLoginBtn').addEventListener('click', function () {
+      var email = ov.querySelector('#adminEmail').value.trim();
+      var pw = ov.querySelector('#adminPw').value;
+      ov.querySelector('#adminLoginMsg').textContent = '';
+      auth.signInWithEmailAndPassword(email, pw).catch(function () {
+        ov.querySelector('#adminLoginMsg').textContent = '로그인 실패: 이메일/비밀번호를 확인하세요.';
+      });
+    });
+    ov.querySelector('#adminPw').addEventListener('keydown', function (e) { if (e.key === 'Enter') ov.querySelector('#adminLoginBtn').click(); });
+    ov.querySelector('#adminLogoutBtn').addEventListener('click', function () { auth.signOut(); });
+    ov.querySelector('#adminRefreshBtn').addEventListener('click', loadRecords);
+    ov.querySelector('#adminSearch').addEventListener('input', renderTable);
+    ov.querySelector('#adminLoadToCard').addEventListener('click', loadToCard);
+    ov.querySelector('#adminTable').addEventListener('click', function (e) {
+      var b = e.target.closest('.adminViewBtn');
+      if (b) showDetail(+b.dataset.idx);
+    });
+
+    /* ---------- 로그인 상태에 따라 화면 전환 ---------- */
+    auth.onAuthStateChanged(function (user) {
+      if (user) {
+        ov.querySelector('#adminLogin').style.display = 'none';
+        ov.querySelector('#adminPanel').style.display = 'block';
+        loadRecords();
+      } else {
+        ov.querySelector('#adminLogin').style.display = 'block';
+        ov.querySelector('#adminPanel').style.display = 'none';
+        ov.querySelector('#adminDetail').style.display = 'none';
+      }
+    });
+  })();
+  /* ==================== [추가] /Firebase 클라우드 제출 + 관리자 화면 ==================== */
 })();
