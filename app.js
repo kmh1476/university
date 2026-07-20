@@ -1366,7 +1366,7 @@ function renderList(){
       <td>${t}</td>
       <td><button type="button" data-id="${r.id}">상세</button></td>
       <td>
-        <button type="button" class="admin-del-btn" onclick="adminDeleteRecord('${r.id}', '${displayName}')">
+<button type="button" class="admin-del-btn" style="background-color: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;" onclick="adminDeleteRecord('${r.id}', '${displayName}')">
           삭제
         </button>
       </td>
