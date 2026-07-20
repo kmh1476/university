@@ -123,43 +123,6 @@
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       cardShowFileStatus(`${name} ${kind} 편집파일을 저장했습니다. 이 파일을 전달하면 다른 컴퓨터에서 이어서 수정할 수 있습니다.`);
     }
-
-    // 학번+이름으로 문서 ID 생성 (동일 학생이 다시 제출하면 덮어쓰기)
-function cardCloudDocId(header) {
-  const hakbun = (header.hakbun || '학번미입력').trim();
-  const name   = (header.name   || '이름미입력').trim();
-  // Firestore ID에 쓸 수 없는 문자 정리
-  return `${hakbun}_${name}`.replace(/[\/\.\#\$$$]/g, '_');
-}
-
-async function cardSubmitToCloud() {
-  cardSaveNow(); // 현재 입력값을 cardState에 반영 (기존 함수)
-  const header = cardState.header || {};
-
-  // 최소 입력 검증
-  if (!header.hakbun || !header.name) {
-    alert('학번과 이름을 먼저 입력해 주세요.');
-    return;
-  }
-
-  const docId = cardCloudDocId(header);
-  const payload = {
-    hakbun: header.hakbun.trim(),
-    name:   header.name.trim(),
-    status: cardHasTeacherContent(cardState) ? '교사상담본' : '학생작성본',
-    state:  cardState,                              // 카드 전체 데이터
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  };
-
-  try {
-    await fbDB.collection('counsel_cards').doc(docId).set(payload, { merge: true });
-    alert(`${header.name} 학생의 상담카드를 제출했습니다.`);
-  } catch (e) {
-    console.error(e);
-    alert('제출에 실패했습니다. 네트워크 상태를 확인해 주세요.');
-  }
-}
-
     function cardOpenImportPicker() {
       const input = el('cardFileInput');
       if (input) { input.value = ''; input.click(); }
@@ -1121,45 +1084,8 @@ async function cardSubmitToCloud() {
           <div class="card-file-status no-print" id="cardFileStatus"></div>
           <div class="card-toolbar no-print">
             <button type="button" class="primary" id="cardPrintBtn">상담카드 + 과년도 입결 PDF 저장</button>
-            <button id="cardSubmitCloudBtn" class="primary" type="button">선생님께 제출</button>
-<!-- 탭 버튼 목록에 추가 -->
-<button class="tab-btn" data-tab="admin">관리자</button>
-
-<!-- 탭 패널 영역에 추가 -->
-<section id="tab-admin" class="tab-panel" style="display:none;">
-  <!-- 로그인 영역 -->
-  <div id="adminLogin">
-    <h3>관리자 로그인</h3>
-    <input id="adminEmail" type="email" placeholder="관리자 이메일">
-    <input id="adminPw" type="password" placeholder="비밀번호">
-    <button id="adminLoginBtn" type="button">로그인</button>
-    <p id="adminLoginMsg" style="color:#c00;"></p>
-  </div>
-
-  <!-- 로그인 후 조회 영역 -->
-  <div id="adminPanel" style="display:none;">
-    <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-      <input id="adminSearch" type="text" placeholder="학번/이름 검색">
-      <button id="adminRefreshBtn" type="button">새로고침</button>
-      <button id="adminLogoutBtn" type="button">로그아웃</button>
-      <span id="adminCount" style="margin-left:auto;"></span>
-    </div>
-    <table id="adminTable" border="1" cellpadding="6" style="width:100%; border-collapse:collapse;">
-      <thead>
-        <tr><th>학번</th><th>이름</th><th>상태</th><th>제출시각</th><th>보기</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-    <!-- 상세 보기 -->
-    <div id="adminDetail" style="margin-top:12px; display:none;">
-      <h3 id="adminDetailTitle"></h3>
-      <button id="adminLoadToCard" type="button">이 학생 데이터를 상담카드 탭으로 불러오기</button>
-      <pre id="adminDetailJson" style="white-space:pre-wrap; background:#f6f6f6; padding:10px; max-height:400px; overflow:auto;"></pre>
-    </div>
-  </div>
-</section>
-
+            <button type="button" id="cardExportFileBtn">편집파일 저장</button>
+            <button type="button" id="cardLoadFileBtn">편집파일 불러오기</button>
             <input type="file" id="cardFileInput" accept=".json,.susicard.json,application/json" hidden>
 
             <button type="button" id="cardPrintOnlyBtn">상담카드만 인쇄</button>
@@ -1176,9 +1102,6 @@ async function cardSubmitToCloud() {
         el('cardFileInput').addEventListener('change', e => cardImportFile(e.target.files && e.target.files[0]));
         el('cardPrintBtn').addEventListener('click', () => cardPrint(true));
         el('cardPrintOnlyBtn').addEventListener('click', () => cardPrint(false));
-        // 기존 이벤트 바인딩부(el('cardPrintOnlyBtn')... 있는 곳)에 추가
-        el('cardSubmitCloudBtn').addEventListener('click', cardSubmitToCloud);
-
         el('cardImportBtn').addEventListener('click', cardImportFavs);
         el('cardResetBtn').addEventListener('click', () => { if (confirm('상담카드 내용을 모두 지울까요?')) { cardState = cardDefaultState(); cardRefreshAll(); cardSave(); } });
         panel.addEventListener('input', e => {
@@ -1270,113 +1193,6 @@ async function cardSubmitToCloud() {
         cardRefreshAll();
       }
     }
-
-    let adminRecords = []; // 불러온 기록 캐시
-
-// 로그인 상태 감지 → 화면 전환
-fbAuth.onAuthStateChanged(user => {
-  const login = el('adminLogin');
-  const panel = el('adminPanel');
-  if (!login || !panel) return;
-  if (user) {
-    login.style.display = 'none';
-    panel.style.display = '';
-    adminLoadRecords();
-  } else {
-    login.style.display = '';
-    panel.style.display = 'none';
-  }
-});
-
-// 로그인
-async function adminLogin() {
-  const email = el('adminEmail').value.trim();
-  const pw    = el('adminPw').value;
-  el('adminLoginMsg').textContent = '';
-  try {
-    await fbAuth.signInWithEmailAndPassword(email, pw);
-  } catch (e) {
-    el('adminLoginMsg').textContent = '로그인 실패: 이메일/비밀번호를 확인하세요.';
-  }
-}
-
-// 기록 전체 불러오기 (최신순)
-async function adminLoadRecords() {
-  const tbody = el('adminTable').querySelector('tbody');
-  tbody.innerHTML = '<tr><td colspan="5">불러오는 중...</td></tr>';
-  try {
-    const snap = await fbDB.collection('counsel_cards')
-                           .orderBy('updatedAt', 'desc')
-                           .get();
-    adminRecords = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    adminRenderTable(adminRecords);
-  } catch (e) {
-    console.error(e);
-    tbody.innerHTML = '<tr><td colspan="5">불러오기 실패 (권한/네트워크 확인)</td></tr>';
-  }
-}
-
-// 표 그리기
-function adminRenderTable(list) {
-  const tbody = el('adminTable').querySelector('tbody');
-  el('adminCount').textContent = `총 ${list.length}건`;
-  if (!list.length) { tbody.innerHTML = '<tr><td colspan="5">기록 없음</td></tr>'; return; }
-  tbody.innerHTML = list.map((r, i) => {
-    const t = r.updatedAt && r.updatedAt.toDate
-            ? r.updatedAt.toDate().toLocaleString('ko-KR') : '-';
-    return `<tr>
-      <td>${r.hakbun || ''}</td>
-      <td>${r.name || ''}</td>
-      <td>${r.status || ''}</td>
-      <td>${t}</td>
-      <td><button type="button" onclick="adminShowDetail(${i})">상세</button></td>
-    </tr>`;
-  }).join('');
-}
-
-// 검색 (클라이언트 필터)
-function adminSearch() {
-  const q = el('adminSearch').value.trim().toLowerCase();
-  const filtered = adminRecords.filter(r =>
-    (r.hakbun || '').toLowerCase().includes(q) ||
-    (r.name   || '').toLowerCase().includes(q));
-  adminRenderTable(filtered);
-}
-
-// 상세 보기
-let adminCurrentState = null;
-function adminShowDetail(idx) {
-  // 검색으로 필터된 경우를 대비해 화면 표 기준이 아니라 캐시에서 매칭
-  const visible = el('adminSearch').value.trim()
-    ? adminRecords.filter(r => {
-        const q = el('adminSearch').value.trim().toLowerCase();
-        return (r.hakbun||'').toLowerCase().includes(q) || (r.name||'').toLowerCase().includes(q);
-      })
-    : adminRecords;
-  const r = visible[idx];
-  if (!r) return;
-  adminCurrentState = r.state;
-  el('adminDetail').style.display = '';
-  el('adminDetailTitle').textContent = `${r.hakbun} ${r.name} (${r.status})`;
-  el('adminDetailJson').textContent = JSON.stringify(r.state, null, 2);
-}
-
-// 상세 데이터를 상담카드 탭으로 로드 (기존 렌더 함수 재사용)
-function adminLoadToCard() {
-  if (!adminCurrentState) return;
-  cardState = JSON.parse(JSON.stringify(adminCurrentState));
-  cardRefreshAll();  // 기존 렌더 함수
-  cardSave();        // 기존 로컬 저장
-  alert('상담카드 탭에서 확인하세요.');
-}
-
-// 이벤트 바인딩
-el('adminLoginBtn')  .addEventListener('click', adminLogin);
-el('adminLogoutBtn') .addEventListener('click', () => fbAuth.signOut());
-el('adminRefreshBtn').addEventListener('click', adminLoadRecords);
-el('adminSearch')    .addEventListener('input', adminSearch);
-el('adminLoadToCard').addEventListener('click', adminLoadToCard);
-
     function cardRefreshAll() {
       const h = cardState.header;
       el('cardPanel').querySelectorAll('input[data-h]').forEach(i2 => { i2.value = h[i2.dataset.h] || ''; });
