@@ -1351,13 +1351,12 @@
           <td><span class="cc-badge ${isT?'t':'s'}">${r.status||''}</span></td>
           <td>${t}</td>
           <td><button type="button" data-id="${r.id}">상세</button></td>
-          // 기존: 학번 / 이름 / 상태 / 제출시각 / [상세]  칸 뒤에 추가
-`<td>
+<td>
    <button type="button" class="admin-del-btn"
      onclick="adminDeleteRecord('${r.id}', '${(r.hakbun||'')} ${(r.name||'')}')">
      삭제
    </button>
- </td>`
+ </td>
 
        
         </tr>`;
