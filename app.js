@@ -1330,7 +1330,7 @@
       show('ccBanPick');
     }
 function renderList(){
-  const search = (q('#ccSearch').value||'').trim();
+  const search = (q('#ccSearch').value || '').trim();
   let rows = ccAll.filter(r => { 
     const p = parseHakbun(r.hakbun); 
     return (ccBan === '기타') ? !p.ok : (p.ok && p.ban === ccBan); 
@@ -1371,14 +1371,10 @@ function renderList(){
         </button>
       </td>
     </tr>`;
-  }).join('') : `<tr><td colspan="7">데이터가 없습니다.</td></tr>`;
-}
+  }).join('') : '<tr><td colspan="7" style="color:#64748b;padding:16px;text-align:center;">해당 조건의 기록이 없습니다.</td></tr>';
 
-       
-        </tr>`;
-      }).join('') : '<tr><td colspan="6" style="color:#64748b;padding:16px;">해당 조건의 기록이 없습니다.</td></tr>';
-      show('ccList');
-    }
+  show('ccList');
+}
     function showDetail(id){
       const r = ccAll.find(x=>x.id===id); if(!r) return;
       ccCurrent = r.state;
