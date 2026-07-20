@@ -1451,22 +1451,37 @@ function renderList(){
       } catch(e){ console.error(e); alert('제출 실패: 네트워크/보안규칙을 확인해 주세요.'); }
     }
 // 관리자: 기록 삭제
-async function adminDeleteRecord(docId, label){
-  if (!window.fbAuth || !window.fbAuth.currentUser){
+async function adminDeleteRecord(docId, label) {
+  if (!window.fbAuth || !window.fbAuth.currentUser) {
     alert('로그인 후에만 삭제할 수 있습니다.');
     return;
   }
+  
   if (!confirm('정말 삭제할까요?\n\n' + label + '\n\n※ 삭제하면 되돌릴 수 없습니다.')) return;
-  try{
+  
+  // 1. 데이터베이스 삭제 통신 영역 (DB 에러만 잡기)
+  try {
     await window.fbDB.collection('counsel_cards').doc(docId).delete();
-    alert('삭제했습니다.');
-    adminLoadRecords();     // 목록 다시 불러오기 (기존 함수 재사용)
-  }catch(e){
-    console.error(e);
+  } catch (e) {
+    console.error('Firebase DB Delete Error:', e);
     alert('삭제 실패: 권한 또는 네트워크를 확인하세요.');
+    return; // DB 삭제 실패 시 여기서 함수 종료 (아래 로직 실행 안 함)
+  }
+
+  // 2. UI 갱신 영역 (DB 삭제가 완벽히 성공한 후에만 도달함)
+  alert('삭제했습니다.');
+  
+  try {
+    adminLoadRecords(); // 목록 다시 불러오기
+  } catch (e) {
+    // 여기서 에러가 나더라도 '삭제 실패'라는 거짓 알림은 뜨지 않습니다.
+    console.error('화면 갱신(adminLoadRecords) 중 에러 발생:', e);
+    // 필요하다면 아래처럼 안내할 수 있습니다.
+    // alert('데이터는 삭제되었으나 화면 갱신 중 문제가 발생했습니다. 새로고침(F5) 해주세요.');
   }
 }
-window.adminDeleteRecord = adminDeleteRecord;   // 인라인 onclick에서 호출 가능하게
+
+window.adminDeleteRecord = adminDeleteRecord;
 
     // -------- 툴바 버튼 주입 --------
     function injectButtons(){
