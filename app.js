@@ -123,43 +123,6 @@
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       cardShowFileStatus(`${name} ${kind} 편집파일을 저장했습니다. 이 파일을 전달하면 다른 컴퓨터에서 이어서 수정할 수 있습니다.`);
     }
-
-    // 학번+이름으로 문서 ID 생성 (동일 학생이 다시 제출하면 덮어쓰기)
-function cardCloudDocId(header) {
-  const hakbun = (header.hakbun || '학번미입력').trim();
-  const name   = (header.name   || '이름미입력').trim();
-  // Firestore ID에 쓸 수 없는 문자 정리
-  return `${hakbun}_${name}`.replace(/[\/\.\#\$$$]/g, '_');
-}
-
-async function cardSubmitToCloud() {
-  cardSaveNow(); // 현재 입력값을 cardState에 반영 (기존 함수)
-  const header = cardState.header || {};
-
-  // 최소 입력 검증
-  if (!header.hakbun || !header.name) {
-    alert('학번과 이름을 먼저 입력해 주세요.');
-    return;
-  }
-
-  const docId = cardCloudDocId(header);
-  const payload = {
-    hakbun: header.hakbun.trim(),
-    name:   header.name.trim(),
-    status: cardHasTeacherContent(cardState) ? '교사상담본' : '학생작성본',
-    state:  cardState,                              // 카드 전체 데이터
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  };
-
-  try {
-    await fbDB.collection('counsel_cards').doc(docId).set(payload, { merge: true });
-    alert(`${header.name} 학생의 상담카드를 제출했습니다.`);
-  } catch (e) {
-    console.error(e);
-    alert('제출에 실패했습니다. 네트워크 상태를 확인해 주세요.');
-  }
-}
-
     function cardOpenImportPicker() {
       const input = el('cardFileInput');
       if (input) { input.value = ''; input.click(); }
@@ -1123,45 +1086,6 @@ async function cardSubmitToCloud() {
             <button type="button" class="primary" id="cardPrintBtn">상담카드 + 과년도 입결 PDF 저장</button>
             <button type="button" id="cardExportFileBtn">편집파일 저장</button>
             <button type="button" id="cardLoadFileBtn">편집파일 불러오기</button>
-            <button id="cardSubmitCloudBtn" class="primary" type="button">선생님께 제출</button>
-<!-- 탭 버튼 목록에 추가 -->
-<button class="tab-btn" data-tab="admin">관리자</button>
-
-<!-- 탭 패널 영역에 추가 -->
-<section id="tab-admin" class="tab-panel" style="display:none;">
-  <!-- 로그인 영역 -->
-  <div id="adminLogin">
-    <h3>관리자 로그인</h3>
-    <input id="adminEmail" type="email" placeholder="관리자 이메일">
-    <input id="adminPw" type="password" placeholder="비밀번호">
-    <button id="adminLoginBtn" type="button">로그인</button>
-    <p id="adminLoginMsg" style="color:#c00;"></p>
-  </div>
-
-  <!-- 로그인 후 조회 영역 -->
-  <div id="adminPanel" style="display:none;">
-    <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-      <input id="adminSearch" type="text" placeholder="학번/이름 검색">
-      <button id="adminRefreshBtn" type="button">새로고침</button>
-      <button id="adminLogoutBtn" type="button">로그아웃</button>
-      <span id="adminCount" style="margin-left:auto;"></span>
-    </div>
-    <table id="adminTable" border="1" cellpadding="6" style="width:100%; border-collapse:collapse;">
-      <thead>
-        <tr><th>학번</th><th>이름</th><th>상태</th><th>제출시각</th><th>보기</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-    <!-- 상세 보기 -->
-    <div id="adminDetail" style="margin-top:12px; display:none;">
-      <h3 id="adminDetailTitle"></h3>
-      <button id="adminLoadToCard" type="button">이 학생 데이터를 상담카드 탭으로 불러오기</button>
-      <pre id="adminDetailJson" style="white-space:pre-wrap; background:#f6f6f6; padding:10px; max-height:400px; overflow:auto;"></pre>
-    </div>
-  </div>
-</section>
-
             <input type="file" id="cardFileInput" accept=".json,.susicard.json,application/json" hidden>
 
             <button type="button" id="cardPrintOnlyBtn">상담카드만 인쇄</button>
@@ -1178,9 +1102,6 @@ async function cardSubmitToCloud() {
         el('cardFileInput').addEventListener('change', e => cardImportFile(e.target.files && e.target.files[0]));
         el('cardPrintBtn').addEventListener('click', () => cardPrint(true));
         el('cardPrintOnlyBtn').addEventListener('click', () => cardPrint(false));
-        // 기존 이벤트 바인딩부(el('cardPrintOnlyBtn')... 있는 곳)에 추가
-        el('cardSubmitCloudBtn').addEventListener('click', cardSubmitToCloud);
-
         el('cardImportBtn').addEventListener('click', cardImportFavs);
         el('cardResetBtn').addEventListener('click', () => { if (confirm('상담카드 내용을 모두 지울까요?')) { cardState = cardDefaultState(); cardRefreshAll(); cardSave(); } });
         panel.addEventListener('input', e => {
@@ -1272,91 +1193,6 @@ async function cardSubmitToCloud() {
         cardRefreshAll();
       }
     }
-
-    let adminRecords = []; // 불러온 기록 캐시
-
-// 로그인
-async function adminLogin() {
-  const email = el('adminEmail').value.trim();
-  const pw    = el('adminPw').value;
-  el('adminLoginMsg').textContent = '';
-  try {
-    await fbAuth.signInWithEmailAndPassword(email, pw);
-  } catch (e) {
-    el('adminLoginMsg').textContent = '로그인 실패: 이메일/비밀번호를 확인하세요.';
-  }
-}
-
-// 기록 전체 불러오기 (최신순)
-async function adminLoadRecords() {
-  const tbody = el('adminTable').querySelector('tbody');
-  tbody.innerHTML = '<tr><td colspan="5">불러오는 중...</td></tr>';
-  try {
-    const snap = await fbDB.collection('counsel_cards')
-                           .orderBy('updatedAt', 'desc')
-                           .get();
-    adminRecords = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    adminRenderTable(adminRecords);
-  } catch (e) {
-    console.error(e);
-    tbody.innerHTML = '<tr><td colspan="5">불러오기 실패 (권한/네트워크 확인)</td></tr>';
-  }
-}
-
-// 표 그리기
-function adminRenderTable(list) {
-  const tbody = el('adminTable').querySelector('tbody');
-  el('adminCount').textContent = `총 ${list.length}건`;
-  if (!list.length) { tbody.innerHTML = '<tr><td colspan="5">기록 없음</td></tr>'; return; }
-  tbody.innerHTML = list.map((r, i) => {
-    const t = r.updatedAt && r.updatedAt.toDate
-            ? r.updatedAt.toDate().toLocaleString('ko-KR') : '-';
-    return `<tr>
-      <td>${r.hakbun || ''}</td>
-      <td>${r.name || ''}</td>
-      <td>${r.status || ''}</td>
-      <td>${t}</td>
-      <td><button type="button" onclick="adminShowDetail(${i})">상세</button></td>
-    </tr>`;
-  }).join('');
-}
-
-// 검색 (클라이언트 필터)
-function adminSearch() {
-  const q = el('adminSearch').value.trim().toLowerCase();
-  const filtered = adminRecords.filter(r =>
-    (r.hakbun || '').toLowerCase().includes(q) ||
-    (r.name   || '').toLowerCase().includes(q));
-  adminRenderTable(filtered);
-}
-
-// 상세 보기
-let adminCurrentState = null;
-function adminShowDetail(idx) {
-  // 검색으로 필터된 경우를 대비해 화면 표 기준이 아니라 캐시에서 매칭
-  const visible = el('adminSearch').value.trim()
-    ? adminRecords.filter(r => {
-        const q = el('adminSearch').value.trim().toLowerCase();
-        return (r.hakbun||'').toLowerCase().includes(q) || (r.name||'').toLowerCase().includes(q);
-      })
-    : adminRecords;
-  const r = visible[idx];
-  if (!r) return;
-  adminCurrentState = r.state;
-  el('adminDetail').style.display = '';
-  el('adminDetailTitle').textContent = `${r.hakbun} ${r.name} (${r.status})`;
-  el('adminDetailJson').textContent = JSON.stringify(r.state, null, 2);
-}
-
-// 상세 데이터를 상담카드 탭으로 로드 (기존 렌더 함수 재사용)
-function adminLoadToCard() {
-  if (!adminCurrentState) return;
-  cardState = JSON.parse(JSON.stringify(adminCurrentState));
-  cardRefreshAll();  // 기존 렌더 함수
-  cardSave();        // 기존 로컬 저장
-  alert('상담카드 탭에서 확인하세요.');
-}
-
     function cardRefreshAll() {
       const h = cardState.header;
       el('cardPanel').querySelectorAll('input[data-h]').forEach(i2 => { i2.value = h[i2.dataset.h] || ''; });
@@ -1378,30 +1214,243 @@ function adminLoadToCard() {
   renderCard();
   const ib = el('cardImportBtn'); if (ib) ib.style.display = 'none';
 
-  // 관리자 탭 DOM(renderCard가 생성)이 준비된 뒤에 로그인 상태 감지 및 이벤트 연결
-  fbAuth.onAuthStateChanged(user => {
-    const login = el('adminLogin');
-    const panel = el('adminPanel');
-    if (!login || !panel) return;
-    if (user) {
-      login.style.display = 'none';
-      panel.style.display = '';
-      adminLoadRecords();
-    } else {
-      login.style.display = '';
-      panel.style.display = 'none';
+  // ==================== 상담카드 클라우드 제출 + 반별 관리자 (Firebase) ====================
+  (function cardCloudAddon(){
+    // -------- 공통 --------
+    function fbReady(){ return !!(window.fbDB && window.fbAuth); }
+    // 학번 3XXYY -> grade=3, ban=XX, beonho=YY
+    function parseHakbun(h){
+      const s = String(h||'').trim();
+      const m = s.match(/^(\d)(\d{2})(\d{2})$/);
+      if(!m) return { ok:false, grade:'', ban:'', beonho:'', banNum:null, beonhoNum:null };
+      return { ok:true, grade:m[1], ban:m[2], beonho:m[3], banNum:parseInt(m[2],10), beonhoNum:parseInt(m[3],10) };
     }
-  });
-  const adminTabBtn = document.querySelector('.tab-btn[data-tab="admin"]');
-  const adminTabSection = el('tab-admin');
-  if (adminTabBtn && adminTabSection) {
-    adminTabBtn.addEventListener('click', () => {
-      adminTabSection.style.display = adminTabSection.style.display === 'none' ? '' : 'none';
+    function docIdOf(hakbun, name){
+      return (String(hakbun||'').trim()+'_'+String(name||'').trim()).replace(/[\/\.\#\$\[\]]/g,'_');
+    }
+
+    // -------- 스타일 주입 --------
+    const st = document.createElement('style');
+    st.textContent = `
+      .cc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;z-index:9999;align-items:flex-start;justify-content:center;overflow:auto;}
+      .cc-overlay.on{display:flex;}
+      .cc-modal{background:#fff;max-width:920px;width:94%;margin:32px 0;border-radius:12px;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25);font-size:14px;}
+      .cc-modal h3{margin:0 0 12px;font-size:18px;}
+      .cc-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
+      .cc-modal input[type=text],.cc-modal input[type=email],.cc-modal input[type=password]{padding:8px 10px;border:1px solid #ccc;border-radius:8px;font-size:14px;}
+      .cc-modal button{padding:8px 14px;border:1px solid #cbd5e1;background:#f8fafc;border-radius:8px;cursor:pointer;font-size:13px;}
+      .cc-modal button.primary{background:#2563eb;border-color:#2563eb;color:#fff;}
+      .cc-modal button:hover{filter:brightness(.97);}
+      .cc-close{margin-left:auto;}
+      .cc-msg{color:#c00;min-height:18px;margin:4px 0;}
+      .cc-bans{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0;}
+      .cc-ban{min-width:96px;padding:14px 10px;text-align:center;border:1px solid #cbd5e1;border-radius:10px;cursor:pointer;background:#f8fafc;}
+      .cc-ban:hover{border-color:#2563eb;background:#eff6ff;}
+      .cc-ban b{display:block;font-size:16px;margin-bottom:4px;}
+      .cc-ban span{color:#64748b;font-size:12px;}
+      .cc-table{width:100%;border-collapse:collapse;margin-top:8px;}
+      .cc-table th,.cc-table td{border:1px solid #e2e8f0;padding:7px 8px;text-align:center;}
+      .cc-table th{background:#f1f5f9;}
+      .cc-table td.l{text-align:left;}
+      .cc-badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;}
+      .cc-badge.t{background:#dcfce7;color:#166534;}
+      .cc-badge.s{background:#e0e7ff;color:#3730a3;}
+      .cc-detail{margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px;}
+      .cc-detail pre{white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;max-height:360px;overflow:auto;font-size:12px;}
+      .cc-crumb{color:#64748b;font-size:12px;margin-bottom:8px;}
+    `;
+    document.head.appendChild(st);
+
+    // -------- 오버레이 DOM --------
+    const ov = document.createElement('div');
+    ov.className = 'cc-overlay';
+    ov.innerHTML = `
+      <div class="cc-modal">
+        <div class="cc-row"><h3 id="ccTitle">관리자</h3><button type="button" class="cc-close" id="ccClose">닫기</button></div>
+
+        <div id="ccLogin">
+          <p style="color:#475569;margin:0 0 10px;">공용 관리자 계정으로 로그인하세요.</p>
+          <div class="cc-row"><input type="email" id="ccEmail" placeholder="관리자 이메일" style="flex:1;min-width:200px;"></div>
+          <div class="cc-row"><input type="password" id="ccPw" placeholder="비밀번호" style="flex:1;min-width:200px;"></div>
+          <div class="cc-row"><button type="button" class="primary" id="ccLoginBtn">로그인</button><button type="button" id="ccLogoutBtn2" style="display:none;">로그아웃</button></div>
+          <div class="cc-msg" id="ccLoginMsg"></div>
+        </div>
+
+        <div id="ccBanPick" style="display:none;">
+          <div class="cc-row"><span style="color:#475569;">조회할 반을 선택하세요.</span><button type="button" class="cc-close" id="ccLogout">로그아웃</button></div>
+          <div class="cc-bans" id="ccBanList"></div>
+        </div>
+
+        <div id="ccList" style="display:none;">
+          <div class="cc-crumb" id="ccCrumb"></div>
+          <div class="cc-row">
+            <button type="button" id="ccBack">◀ 반 선택으로</button>
+            <input type="text" id="ccSearch" placeholder="이름/번호 검색" style="flex:1;min-width:160px;">
+            <button type="button" id="ccRefresh">새로고침</button>
+            <span id="ccCount" style="margin-left:auto;color:#64748b;"></span>
+          </div>
+          <table class="cc-table">
+            <thead><tr><th style="width:64px;">번호</th><th style="width:88px;">학번</th><th>이름</th><th style="width:96px;">상태</th><th style="width:150px;">제출시각</th><th style="width:70px;">보기</th></tr></thead>
+            <tbody id="ccTbody"></tbody>
+          </table>
+          <div class="cc-detail" id="ccDetail" style="display:none;">
+            <div class="cc-row"><b id="ccDetailTitle"></b><button type="button" class="primary" id="ccLoadToCard" style="margin-left:auto;">이 학생 카드를 화면으로 불러오기</button></div>
+            <pre id="ccDetailJson"></pre>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+
+    const q = sel => ov.querySelector(sel);
+    function show(id){ ['ccLogin','ccBanPick','ccList'].forEach(x=>{ const n=q('#'+x); if(n) n.style.display = (x===id?'':'none'); }); }
+    function openOverlay(){ ov.classList.add('on'); if(fbAuthUser()) { enterAfterLogin(); } else { show('ccLogin'); } }
+    function closeOverlay(){ ov.classList.remove('on'); }
+    function fbAuthUser(){ return fbReady() && window.fbAuth.currentUser; }
+
+    // -------- 데이터 --------
+    let ccAll = [];       // 전체 레코드
+    let ccBan = null;     // 선택된 반(문자 "05")
+    let ccCurrent = null; // 상세 대상 state
+
+    async function loadAll(){
+      const snap = await window.fbDB.collection('counsel_cards').orderBy('updatedAt','desc').get();
+      ccAll = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    }
+    function renderBanPick(){
+      const counts = {};
+      ccAll.forEach(r=>{ const p=parseHakbun(r.hakbun); const key = p.ok? p.ban : '기타'; counts[key]=(counts[key]||0)+1; });
+      const keys = Object.keys(counts).sort((a,b)=>{
+        if(a==='기타') return 1; if(b==='기타') return -1; return parseInt(a,10)-parseInt(b,10);
+      });
+      const list = q('#ccBanList');
+      list.innerHTML = keys.length ? keys.map(k=>{
+        const label = k==='기타' ? '기타(형식오류)' : (parseInt(k,10)+'반');
+        return `<div class="cc-ban" data-ban="${k}"><b>${label}</b><span>${counts[k]}명</span></div>`;
+      }).join('') : '<p style="color:#64748b;">아직 제출된 기록이 없습니다.</p>';
+      show('ccBanPick');
+    }
+    function renderList(){
+      const search = (q('#ccSearch').value||'').trim();
+      let rows = ccAll.filter(r=>{ const p=parseHakbun(r.hakbun); return (ccBan==='기타') ? !p.ok : (p.ok && p.ban===ccBan); });
+      if(search){
+        rows = rows.filter(r=> String(r.name||'').includes(search) || String(r.hakbun||'').includes(search) );
+      }
+      rows.sort((a,b)=>{ const pa=parseHakbun(a.hakbun), pb=parseHakbun(b.hakbun); return (pa.beonhoNum||999)-(pb.beonhoNum||999); });
+      const banLabel = ccBan==='기타' ? '기타(형식오류)' : (parseInt(ccBan,10)+'반');
+      q('#ccCrumb').textContent = '3학년 ' + banLabel + ' 상담카드 목록';
+      q('#ccCount').textContent = '총 ' + rows.length + '명';
+      const tb = q('#ccTbody');
+      tb.innerHTML = rows.length ? rows.map(r=>{
+        const p=parseHakbun(r.hakbun);
+        const t = (r.updatedAt && r.updatedAt.toDate) ? r.updatedAt.toDate().toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-';
+        const isT = r.status==='교사상담본';
+        return `<tr>
+          <td>${p.ok? p.beonhoNum+'번':'-'}</td>
+          <td>${r.hakbun||''}</td>
+          <td class="l">${r.name||''}</td>
+          <td><span class="cc-badge ${isT?'t':'s'}">${r.status||''}</span></td>
+          <td>${t}</td>
+          <td><button type="button" data-id="${r.id}">상세</button></td>
+        </tr>`;
+      }).join('') : '<tr><td colspan="6" style="color:#64748b;padding:16px;">해당 조건의 기록이 없습니다.</td></tr>';
+      show('ccList');
+    }
+    function showDetail(id){
+      const r = ccAll.find(x=>x.id===id); if(!r) return;
+      ccCurrent = r.state;
+      q('#ccDetail').style.display='';
+      q('#ccDetailTitle').textContent = (r.hakbun||'') + ' ' + (r.name||'') + ' — ' + (r.status||'');
+      q('#ccDetailJson').textContent = JSON.stringify(r.state, null, 2);
+      q('#ccDetail').scrollIntoView({behavior:'smooth', block:'nearest'});
+    }
+    async function enterAfterLogin(){
+      q('#ccLoginMsg').textContent='';
+      try { await loadAll(); renderBanPick(); }
+      catch(e){ console.error(e); alert('기록 불러오기 실패: 권한(로그인)/네트워크를 확인하세요.'); }
+    }
+
+    // -------- 이벤트 --------
+    q('#ccClose').addEventListener('click', closeOverlay);
+    ov.addEventListener('click', e=>{ if(e.target===ov) closeOverlay(); });
+
+    q('#ccLoginBtn').addEventListener('click', async ()=>{
+      if(!fbReady()){ q('#ccLoginMsg').textContent='Firebase 설정이 필요합니다 (firebaseConfig).'; return; }
+      const email=q('#ccEmail').value.trim(), pw=q('#ccPw').value;
+      q('#ccLoginMsg').textContent='';
+      try { await window.fbAuth.signInWithEmailAndPassword(email,pw); }
+      catch(e){ q('#ccLoginMsg').textContent='로그인 실패: 이메일/비밀번호를 확인하세요.'; }
     });
-  }
-  el('adminLoginBtn')  .addEventListener('click', adminLogin);
-  el('adminLogoutBtn') .addEventListener('click', () => fbAuth.signOut());
-  el('adminRefreshBtn').addEventListener('click', adminLoadRecords);
-  el('adminSearch')    .addEventListener('input', adminSearch);
-  el('adminLoadToCard').addEventListener('click', adminLoadToCard);
+    function doLogout(){ if(fbReady()) window.fbAuth.signOut(); ccBan=null; ccCurrent=null; show('ccLogin'); }
+    q('#ccLogout').addEventListener('click', doLogout);
+
+    q('#ccBanList').addEventListener('click', e=>{
+      const t=e.target.closest('.cc-ban'); if(!t) return;
+      ccBan = t.dataset.ban; q('#ccSearch').value=''; q('#ccDetail').style.display='none'; renderList();
+    });
+    q('#ccBack').addEventListener('click', ()=>{ q('#ccDetail').style.display='none'; renderBanPick(); });
+    q('#ccRefresh').addEventListener('click', async ()=>{ try{ await loadAll(); renderList(); }catch(e){ alert('새로고침 실패'); } });
+    q('#ccSearch').addEventListener('input', renderList);
+    q('#ccTbody').addEventListener('click', e=>{ const b=e.target.closest('button[data-id]'); if(b) showDetail(b.dataset.id); });
+
+    q('#ccLoadToCard').addEventListener('click', ()=>{
+      if(!ccCurrent) return;
+      try {
+        cardState = cardNormalizeImportedState(ccCurrent);
+        cardRefreshAll(); cardSaveNow();
+        closeOverlay();
+        alert('상담카드 화면에 불러왔습니다.');
+      } catch(e){ console.error(e); alert('불러오기 실패: '+e.message); }
+    });
+
+    // 로그인 상태 변화 감지
+    if(fbReady()){
+      window.fbAuth.onAuthStateChanged(u=>{ if(ov.classList.contains('on')){ if(u) enterAfterLogin(); else show('ccLogin'); } });
+    }
+
+    // -------- 학생 클라우드 제출 --------
+    async function submitToCloud(){
+      if(!fbReady()){ alert('Firebase 설정이 필요합니다. index.html의 firebaseConfig를 확인하세요.'); return; }
+      cardSaveNow();
+      const header = (cardState && cardState.header) || {};
+      const hakbun = String(header.hakbun||'').trim();
+      const name   = String(header.name||'').trim();
+      if(!hakbun || !name){ alert('학번과 이름을 먼저 입력해 주세요.'); return; }
+      const p = parseHakbun(hakbun);
+      if(!p.ok){ if(!confirm('학번 형식(3XXYY, 예: 30512)이 아닙니다. 그래도 제출할까요?')) return; }
+      const payload = {
+        hakbun, name,
+        ban: p.ok ? p.ban : '',
+        beonho: p.ok ? p.beonho : '',
+        status: cardHasTeacherContent(cardState) ? '교사상담본' : '학생작성본',
+        state: cardState,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      try {
+        await window.fbDB.collection('counsel_cards').doc(docIdOf(hakbun,name)).set(payload, { merge:true });
+        alert(name + ' 학생의 상담카드를 제출했습니다.');
+      } catch(e){ console.error(e); alert('제출 실패: 네트워크/보안규칙을 확인해 주세요.'); }
+    }
+
+    // -------- 툴바 버튼 주입 --------
+    function injectButtons(){
+      const bar = document.querySelector('.card-toolbar'); if(!bar) return;
+      if(!document.getElementById('cardSubmitCloudBtn')){
+        const b1=document.createElement('button');
+        b1.type='button'; b1.id='cardSubmitCloudBtn'; b1.className='primary'; b1.textContent='선생님께 제출';
+        b1.addEventListener('click', submitToCloud);
+        const b2=document.createElement('button');
+        b2.type='button'; b2.id='cardAdminBtn'; b2.textContent='관리자 모드';
+        b2.addEventListener('click', openOverlay);
+        const reset = document.getElementById('cardResetBtn');
+        if(reset){ bar.insertBefore(b1, reset); bar.insertBefore(b2, reset); }
+        else { bar.appendChild(b1); bar.appendChild(b2); }
+      }
+    }
+    injectButtons();
+    // renderCard 재실행으로 툴바가 다시 그려질 때 대비
+    document.addEventListener('DOMContentLoaded', injectButtons);
+    setTimeout(injectButtons, 500);
+  })();
+  // ==================== /상담카드 클라우드 제출 + 반별 관리자 ====================
+
 })();

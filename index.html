@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>2027 수시 지원 상담카드 V9.2 · 경기대학교 공식요강 데이터 보완본</title>
+<title>2027 수시 지원 상담카드 V9.2 </title>
 <style>
 :root { --bg:#f6f7f9; --panel:#ffffff; --ink:#1f2933; --muted:#667085; --line:#d7dde5; --line-strong:#aab4c2; --navy:#17456b; --soft-blue:#e8f1f8; }
 * { box-sizing:border-box; }
@@ -201,7 +201,53 @@ input, select { font-family:inherit; }
     /* ==================== /상담카드 탭 ==================== */
 
 @media print { header { display:none !important; } body { background:#fff; } main { max-width:none; padding:0; } }
+/* 클라우드 제출 버튼 빨간색 */
+.card-toolbar button#cardSubmitCloudBtn {
+  background:#d32f2f;
+  border-color:#d32f2f;
+  color:#fff;
+}
+/* 선생님께 제출 = 가장 왼쪽, 관리자 = 가장 오른쪽 */
+.card-toolbar { align-items:center; }
+
+.card-toolbar button#cardSubmitCloudBtn {   /* 선생님께 제출 */
+  order: -1;                 /* 맨 앞으로 */
+}
+
+.card-toolbar button#cardAdminBtn {          /* 관리자 */
+  order: 100;                /* 맨 뒤로 */
+  margin-left: auto;         /* 오른쪽 끝으로 밀어붙임 */
+}
+
 </style>
+
+<!-- ===== Firebase (상담카드 클라우드/관리자) ===== -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+  // ★★★ Firebase 콘솔 > 프로젝트 설정 > 웹앱 의 값으로 교체하세요 ★★★
+  window.firebaseConfig = {
+  apiKey: "AIzaSyDXjUuhQ2urXuDAZHSeFjF1xED6qMzoQ60",
+  authDomain: "university-a66f6.firebaseapp.com",
+  projectId: "university-a66f6",
+  storageBucket: "university-a66f6.firebasestorage.app",
+  messagingSenderId: "478591588811",
+  appId: "1:478591588811:web:f0356ec048ad45cd057e4e",
+  measurementId: "G-60DHBRVL0M"
+  };
+  try {
+    if (window.firebaseConfig.projectId && !window.firebaseConfig.projectId.startsWith("여기에")) {
+      firebase.initializeApp(window.firebaseConfig);
+      window.fbDB = firebase.firestore();
+      window.fbAuth = firebase.auth();
+    } else {
+      console.warn("[Firebase] firebaseConfig 미설정 - 클라우드/관리자 기능 비활성화 (기존 기능은 정상)");
+    }
+  } catch (e) { console.error("[Firebase] 초기화 실패:", e); }
+</script>
+<!-- ===== /Firebase ===== -->
+
 </head>
 <body>
 <!-- 경기대학교 데이터: 2027학년도 공식 수시모집요강(공지용) 모집단위·전형·인원·방법·일정 및 별첨 2026 입결 반영 -->
@@ -212,26 +258,6 @@ input, select { font-family:inherit; }
 <main>
   <section id="cardPanel"></section>
 </main>
-
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>
-  // ★ 콘솔에서 복사한 값으로 교체하세요
-  const firebaseConfig = {
-  apiKey: "AIzaSyDXjUuhQ2urXuDAZHSeFjF1xED6qMzoQ60",
-  authDomain: "university-a66f6.firebaseapp.com",
-  projectId: "university-a66f6",
-  storageBucket: "university-a66f6.firebasestorage.app",
-  messagingSenderId: "478591588811",
-  appId: "1:478591588811:web:f0356ec048ad45cd057e4e",
-  measurementId: "G-60DHBRVL0M"
-  };
-  firebase.initializeApp(firebaseConfig);
-  window.fbDB   = firebase.firestore();
-  window.fbAuth = firebase.auth();
-</script>
 <script>
 (function () {
   'use strict';
