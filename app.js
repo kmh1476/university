@@ -1289,7 +1289,8 @@
             <span id="ccCount" style="margin-left:auto;color:#64748b;"></span>
           </div>
           <table class="cc-table">
-            <thead><tr><th style="width:64px;">번호</th><th style="width:88px;">학번</th><th>이름</th><th style="width:96px;">상태</th><th style="width:150px;">제출시각</th><th style="width:70px;">보기</th></tr></thead>
+            <thead><tr><th style="width:64px;">번호</th><th style="width:88px;">학번</th><th>이름</th><th style="width:96px;">상태</th><th style="width:150px;">제출시각</th><th style="width:70px;">보기</th><th>삭제</th>
+            </tr></thead>
             <tbody id="ccTbody"></tbody>
           </table>
           <div class="cc-detail" id="ccDetail" style="display:none;">
@@ -1350,6 +1351,15 @@
           <td><span class="cc-badge ${isT?'t':'s'}">${r.status||''}</span></td>
           <td>${t}</td>
           <td><button type="button" data-id="${r.id}">상세</button></td>
+          // 기존: 학번 / 이름 / 상태 / 제출시각 / [상세]  칸 뒤에 추가
+`<td>
+   <button type="button" class="admin-del-btn"
+     onclick="adminDeleteRecord('${r.id}', '${(r.hakbun||'')} ${(r.name||'')}')">
+     삭제
+   </button>
+ </td>`
+
+       
         </tr>`;
       }).join('') : '<tr><td colspan="6" style="color:#64748b;padding:16px;">해당 조건의 기록이 없습니다.</td></tr>';
       show('ccList');
@@ -1429,6 +1439,23 @@
         alert(name + ' 학생의 상담카드를 제출했습니다.');
       } catch(e){ console.error(e); alert('제출 실패: 네트워크/보안규칙을 확인해 주세요.'); }
     }
+// 관리자: 기록 삭제
+async function adminDeleteRecord(docId, label){
+  if (!window.fbAuth || !window.fbAuth.currentUser){
+    alert('로그인 후에만 삭제할 수 있습니다.');
+    return;
+  }
+  if (!confirm('정말 삭제할까요?\n\n' + label + '\n\n※ 삭제하면 되돌릴 수 없습니다.')) return;
+  try{
+    await window.fbDB.collection('counsel_cards').doc(docId).delete();
+    alert('삭제했습니다.');
+    adminLoadRecords();     // 목록 다시 불러오기 (기존 함수 재사용)
+  }catch(e){
+    console.error(e);
+    alert('삭제 실패: 권한 또는 네트워크를 확인하세요.');
+  }
+}
+window.adminDeleteRecord = adminDeleteRecord;   // 인라인 onclick에서 호출 가능하게
 
     // -------- 툴바 버튼 주입 --------
     function injectButtons(){
